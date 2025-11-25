@@ -11,18 +11,16 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// ✅ CORS CONFIGURADO PARA EXPO GO
+// ✅ CORS CONFIGURADO PARA TODAS AS ORIGENS
 app.use(cors({
   origin: [
     'http://localhost:3001',      // Backend local
     'http://localhost:8081',      // Expo web
     'exp://localhost:8081',       // Expo local
-    'http://192.168.1.100:3001',  // ⬅️ CORRIGIDO - removi o espaço
-    'http://192.168.1.100:8081',  // ⬅️ CORRIGIDO - removi o espaço
-    'exp://192.168.1.100:8081',   // ⬅️ CORRIGIDO - removi o espaço
+    'https://costtime-api.onrender.com', // ✅ SEU SERVIDOR NA NUVEM
     'http://10.0.2.2:8081',       // Emulador Android
     'http://10.0.3.2:8081',       // Genymotion
-    '*'
+    '*'                           // ✅ QUALQUER ORIGEM
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
@@ -89,7 +87,7 @@ app.listen(PORT, '0.0.0.0', async () => {
   console.log(`🚀 Servidor rodando na porta ${PORT}`);
   console.log(`📍 URLs de acesso:`);
   console.log(`   Local: http://localhost:${PORT}`);
-  console.log(`   Rede: http://192.168.1.100:${PORT}`); // ⬅️ CORRIGIDO - removi o espaço
+  console.log(`   Nuvem: https://costtime-api.onrender.com`); // ✅ URL DA NUVEM
   
   // Testar conexão com banco
   const conexaoOK = await testConnection();
