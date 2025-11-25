@@ -1,8 +1,8 @@
-// backend/controllers/clienteController.js
+// backend/controllers/clienteController.js - ATUALIZADO para sqlite3
 import { connection } from '../database/connection.js';
 
 export const clienteController = {
-  // Criar novo cliente
+  // Criar novo cliente - ATUALIZADO
   async criarCliente(req, res) {
     try {
       const {
@@ -34,40 +34,49 @@ export const clienteController = {
         tempo_de_trabalho_diario, escala, emprego_ou_funcao
       ];
 
-      // SQLite usa run() em vez de execute()
-      const result = connection.prepare(sql).run(values);
-      
-      res.status(201).json({
-        message: 'Cliente criado com sucesso!',
-        id: result.lastInsertRowid, // SQLite usa lastInsertRowid
-        email: email
+      // SQLite3 usa callback
+      connection.run(sql, values, function(err) {
+        if (err) {
+          console.error('Erro ao criar cliente:', err);
+          
+          if (err.message.includes('UNIQUE constraint failed')) {
+            return res.status(400).json({ error: 'Email já cadastrado' });
+          }
+          
+          return res.status(500).json({ error: 'Erro interno do servidor' });
+        }
+        
+        res.status(201).json({
+          message: 'Cliente criado com sucesso!',
+          id: this.lastID, // sqlite3 usa this.lastID
+          email: email
+        });
       });
 
     } catch (error) {
       console.error('Erro ao criar cliente:', error);
-      
-      if (error.message.includes('UNIQUE constraint failed')) {
-        return res.status(400).json({ error: 'Email já cadastrado' });
-      }
-      
       res.status(500).json({ error: 'Erro interno do servidor' });
     }
   },
 
-  // Buscar cliente por email
+  // Buscar cliente por email - ATUALIZADO
   async buscarCliente(req, res) {
     try {
       const { email } = req.params;
 
       const sql = 'SELECT * FROM CLIENTE WHERE Email = ?';
-      const stmt = connection.prepare(sql);
-      const cliente = stmt.get(email);
+      connection.get(sql, [email], (err, cliente) => {
+        if (err) {
+          console.error('Erro ao buscar cliente:', err);
+          return res.status(500).json({ error: 'Erro interno do servidor' });
+        }
 
-      if (!cliente) {
-        return res.status(404).json({ error: 'Cliente não encontrado' });
-      }
+        if (!cliente) {
+          return res.status(404).json({ error: 'Cliente não encontrado' });
+        }
 
-      res.json(cliente);
+        res.json(cliente);
+      });
 
     } catch (error) {
       console.error('Erro ao buscar cliente:', error);
@@ -75,7 +84,7 @@ export const clienteController = {
     }
   },
 
-  // Atualizar cliente
+  // Atualizar cliente - ATUALIZADO
   async atualizarCliente(req, res) {
     try {
       const { email } = req.params;
@@ -105,14 +114,19 @@ export const clienteController = {
       const values = [...Object.values(camposParaAtualizar), email];
 
       const sql = `UPDATE CLIENTE SET ${setClause} WHERE Email = ?`;
-      const stmt = connection.prepare(sql);
-      const result = stmt.run(values);
+      
+      connection.run(sql, values, function(err) {
+        if (err) {
+          console.error('Erro ao atualizar cliente:', err);
+          return res.status(500).json({ error: 'Erro interno do servidor' });
+        }
 
-      if (result.changes === 0) {
-        return res.status(404).json({ error: 'Cliente não encontrado' });
-      }
+        if (this.changes === 0) {
+          return res.status(404).json({ error: 'Cliente não encontrado' });
+        }
 
-      res.json({ message: 'Cliente atualizado com sucesso!' });
+        res.json({ message: 'Cliente atualizado com sucesso!' });
+      });
 
     } catch (error) {
       console.error('Erro ao atualizar cliente:', error);
@@ -120,7 +134,7 @@ export const clienteController = {
     }
   },
 
-  // NOVA FUNÇÃO: Login do cliente
+  // Login do cliente - ATUALIZADO
   async loginCliente(req, res) {
     try {
       const { email, senha } = req.body;
@@ -131,42 +145,46 @@ export const clienteController = {
         return res.status(400).json({ error: 'Email e senha são obrigatórios' });
       }
 
-      // Buscar cliente pelo email
+      // Buscar cliente pelo email - ATUALIZADO
       const sql = 'SELECT * FROM CLIENTE WHERE Email = ?';
-      const stmt = connection.prepare(sql);
-      const cliente = stmt.get(email);
-
-      if (!cliente) {
-        console.log('❌ Email não encontrado:', email);
-        return res.status(401).json({ error: 'Email não encontrado' });
-      }
-
-      // Verificar senha
-      if (cliente.Senha !== senha) {
-        console.log('❌ Senha incorreta para:', email);
-        return res.status(401).json({ error: 'Senha incorreta' });
-      }
-
-      console.log('✅ Login bem-sucedido para:', email);
-
-      // Login bem-sucedido - retorna dados do cliente (sem a senha)
-      res.json({
-        message: 'Login realizado com sucesso',
-        cliente: {
-          id: cliente.id,
-          email: cliente.Email,
-          nome: cliente.Nome,
-          sobrenome: cliente.sobrenome,
-          dataNascimento: cliente.Data_de_nascimento,
-          data_de_nascimento: cliente.Data_de_nascimento,
-          genero: cliente.genero,
-          idade: cliente.Idade,
-          salario: cliente.salario,
-          horas_trabalhadas_por_semana: cliente.Horas_trabalhadas_por_semana,
-          tempo_de_trabalho_diario: cliente.tempo_de_trabalho_diario,
-          escala: cliente.escala,
-          emprego_ou_funcao: cliente.emprego_ou_funcao
+      connection.get(sql, [email], (err, cliente) => {
+        if (err) {
+          console.error('❌ Erro ao buscar cliente:', err);
+          return res.status(500).json({ error: 'Erro interno do servidor' });
         }
+
+        if (!cliente) {
+          console.log('❌ Email não encontrado:', email);
+          return res.status(401).json({ error: 'Email não encontrado' });
+        }
+
+        // Verificar senha
+        if (cliente.Senha !== senha) {
+          console.log('❌ Senha incorreta para:', email);
+          return res.status(401).json({ error: 'Senha incorreta' });
+        }
+
+        console.log('✅ Login bem-sucedido para:', email);
+
+        // Login bem-sucedido
+        res.json({
+          message: 'Login realizado com sucesso',
+          cliente: {
+            id: cliente.id,
+            email: cliente.Email,
+            nome: cliente.Nome,
+            sobrenome: cliente.sobrenome,
+            dataNascimento: cliente.Data_de_nascimento,
+            data_de_nascimento: cliente.Data_de_nascimento,
+            genero: cliente.genero,
+            idade: cliente.Idade,
+            salario: cliente.salario,
+            horas_trabalhadas_por_semana: cliente.Horas_trabalhadas_por_semana,
+            tempo_de_trabalho_diario: cliente.tempo_de_trabalho_diario,
+            escala: cliente.escala,
+            emprego_ou_funcao: cliente.emprego_ou_funcao
+          }
+        });
       });
 
     } catch (error) {
